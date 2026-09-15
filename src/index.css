@@ -189,6 +189,12 @@ button {
   position: relative;
   will-change: auto;
 }
+.bubble-grid .bubble-name {
+  white-space: normal;
+  max-width: 170px;
+  text-align: center;
+  line-height: 1.3;
+}
 
 /* Glas-Pille unten mittig */
 .pill {

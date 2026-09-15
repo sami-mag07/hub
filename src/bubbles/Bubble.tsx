@@ -36,10 +36,14 @@ export function Logo({ entry, className, transition }: { entry: EntrySummary; cl
   )
 }
 
-// Welches Datum zählt: die Frist, solange sie nicht vorbei ist, sonst der Termin.
+const SIGNED = new Set(['beworben', 'warteliste', 'angenommen'])
+
+// Welches Datum zählt: die Frist, solange sie nicht vorbei ist und noch keine
+// Bewerbung läuft, sonst der Termin.
 export function relevantDays(e: EntrySummary): { days: number | null; what: 'deadline' | 'event' | null } {
+  const applied = !!e.tracker && SIGNED.has(e.tracker.status)
   const dl = daysUntil(e.deadline)
-  if (dl !== null && dl >= 0) return { days: dl, what: 'deadline' }
+  if (!applied && dl !== null && dl >= 0) return { days: dl, what: 'deadline' }
   const ev = daysUntil(e.dates.start)
   if (ev !== null && ev >= 0) return { days: ev, what: 'event' }
   return { days: null, what: null }
