@@ -1,0 +1,12 @@
+.DS_Store
+node_modules
+dist
+*.log
+
+# Secrets gehoeren in .env, niemals ins Repo (.env.example ist der Platzhalter)
+.env
+.env.*
+!.env.example
+
+# Laufzeitdaten des Servers (Eintraege, Sessions, Logos): auch der Dev-Server schreibt hier
+data/

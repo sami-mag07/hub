@@ -1,0 +1,435 @@
+@import 'tailwindcss';
+
+/* Weiß, Schwarz, ein Akzent. Farbe trägt Bedeutung: der Akzent markiert die
+   primäre Aktion, Rot nur eine Frist unter drei Tagen. Das Glas der Blasen ist
+   der einzige Effekt und der Grund, warum es diese Seite gibt. */
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+}
+
+:root {
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --surface-raised: #ffffff;
+  --border: #e5e5ea;
+  --border-strong: #d1d1d6;
+  --text: #0a0a0a;
+  --text-muted: #6e6e73;
+  --text-faint: #a1a1a6;
+  --accent: #0a0a0a;
+  --accent-text: #ffffff;
+  --primary: #0071e3;
+  --primary-text: #ffffff;
+  --danger: #d0281c;
+  --focus: #0071e3;
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 18px rgba(0, 0, 0, 0.06), 0 24px 48px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 1;
+  overscroll-behavior: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Hintergrund unter dem Blasenfeld: drei sehr weiche Farbflecken, damit das
+   Glas etwas zu brechen hat. Auf reinem Weiß wäre Glas unsichtbar. */
+.field-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.field-bg span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.field-bg .b1 { width: 52vmax; height: 52vmax; left: -12vmax; top: -18vmax; background: #cfe3ff; animation: blob1 38s ease-in-out infinite alternate; }
+.field-bg .b2 { width: 46vmax; height: 46vmax; right: -14vmax; top: 10vmax; background: #e6dcff; animation: blob2 46s ease-in-out infinite alternate; }
+.field-bg .b3 { width: 40vmax; height: 40vmax; left: 22vmax; bottom: -22vmax; background: #ffe4d1; animation: blob3 52s ease-in-out infinite alternate; }
+@keyframes blob1 { to { transform: translate(10vmax, 8vmax); } }
+@keyframes blob2 { to { transform: translate(-8vmax, 12vmax); } }
+@keyframes blob3 { to { transform: translate(6vmax, -10vmax); } }
+
+/* Die Blase */
+.bubble-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  contain: layout;
+}
+.bubble {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.34);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 220ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 30% 24%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 58%);
+  pointer-events: none;
+}
+.bubble:hover {
+  transform: scale(1.045);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.06),
+    0 16px 40px rgba(0, 0, 0, 0.14);
+}
+.bubble:active {
+  transform: scale(0.98);
+}
+.bubble-plate {
+  display: grid;
+  place-items: center;
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.bubble-plate img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+}
+.bubble-plate .initials {
+  font-weight: 600;
+  font-size: 0.95em;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+.bubble-name {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+.bubble-name .days {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.bubble-name .days.urgent {
+  color: var(--danger);
+  font-weight: 600;
+}
+.bubble-wrap:hover .bubble-name,
+.bubble-wrap:focus-within .bubble-name,
+.bubble-grid .bubble-wrap .bubble-name {
+  opacity: 1;
+}
+
+/* Unter 640 px: kein Feld, ein Raster derselben Blasen */
+.bubble-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 40px 16px;
+  padding: 24px 16px 140px;
+  justify-items: center;
+}
+.bubble-grid .bubble-wrap {
+  position: relative;
+  will-change: auto;
+}
+
+/* Glas-Pille unten mittig */
+.pill {
+  position: fixed;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+}
+.pill button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 160ms ease, color 160ms ease;
+}
+.pill button[aria-pressed='true'] {
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.pill button:hover:not([aria-pressed='true']) {
+  color: var(--text);
+}
+
+/* Glas-Karte (Login, Popover, Modal) */
+.glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow);
+}
+
+/* Formulare */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--text);
+  font-size: 15px;
+  transition: border-color 120ms ease;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
+}
+textarea.input {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.45;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+.btn:hover {
+  background: var(--surface);
+}
+.btn:active {
+  transform: scale(0.985);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+.btn-primary:hover {
+  background: #0062c4;
+}
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+/* Kachel */
+.card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Tabs im Board */
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow-x: auto;
+}
+.tabs button {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tabs button[aria-selected='true'] {
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, #ececef 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* Kanban */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 767px) {
+  .kanban {
+    grid-template-columns: 1fr;
+  }
+}
+.kanban-col {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 8px;
+  min-height: 120px;
+}
+.kanban-col.over {
+  outline: 2px dashed var(--border-strong);
+  outline-offset: -2px;
+}
+.task-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  cursor: grab;
+  touch-action: none;
+}
+.task-card:active {
+  cursor: grabbing;
+}
+.task-card.dragging {
+  opacity: 0.4;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 50;
+}
+.modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-bg span,
+  .bubble,
+  .bubble-name,
+  .pill button {
+    animation: none !important;
+    transition: none !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
