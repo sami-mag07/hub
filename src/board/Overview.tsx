@@ -29,8 +29,9 @@ export function About({ entry, op, apply }: { entry: Entry; op: OpFn; apply: (e:
   const [reading, setReading] = useState(false)
   const [readError, setReadError] = useState<string | null>(null)
   const [readResult, setReadResult] = useState<string | null>(null)
+  // info.tracks ist der alte Freitext; Tracks haben jetzt eine eigene Karte.
   const filled = INFO.filter(({ key }) => entry.info[key])
-  const empty = INFO.filter(({ key }) => !entry.info[key])
+  const empty = INFO.filter(({ key }) => !entry.info[key] && key !== 'tracks')
 
   // Die Blase liest ihre Webseite: füllt nur, was leer ist.
   const read = async () => {
