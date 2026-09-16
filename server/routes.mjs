@@ -166,8 +166,8 @@ export function createRouter({ auth, store, tracker }) {
     store.get(id)
     if (!llmConfigured()) throw new HttpError(503, 'llm_unconfigured', 'Reading is not configured on the server')
     checkEnrichLimit(id)
-    const { changed, page } = await enrichEntry(store, id)
-    await huntLogo(store, id, page).catch(() => null)
+    await huntLogo(store, id).catch(() => null)
+    const { changed } = await enrichEntry(store, id)
     sendJson(res, 200, { entry: store.get(id), changed })
   })
   on('POST', /^\/api\/entries\/([A-Za-z0-9_-]{6,32})\/signup$/, async (req, res, _user, [id]) => {

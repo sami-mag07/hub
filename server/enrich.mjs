@@ -33,13 +33,35 @@ Answer with ONE JSON object and nothing else, no code fences, no commentary. Sch
 }
 Rules: write in English. Do not invent anything; leave fields empty when the page does not say. Keep every string under 600 characters. Dates as they appear on the page.`
 
+const MIN_TEXT = 200
+
+// Seite holen und in Text verwandeln. Reine JavaScript-Seiten (Luma, Google
+// RSVP) liefern kaum HTML-Text; dann rendert der Jina-Reader die Seite und
+// gibt Text zurück. Die Zieladresse ist vorher schon gegen privates Netz
+// geprüft, Jina bekommt nur öffentliche Adressen.
 export async function readSite(url) {
   const page = await fetchSafe(url, {
     maxBytes: 3 * 1024 * 1024,
     timeoutMs: 15_000,
     accept: (t) => t.startsWith('text/html') || t === 'application/xhtml+xml',
   })
-  return parseHtml(page.body.toString('utf8'), page.url)
+  const parsed = parseHtml(page.body.toString('utf8'), page.url)
+  if (parsed.text.length >= MIN_TEXT) return parsed
+  try {
+    const rendered = await fetchSafe(`https://r.jina.ai/${page.url}`, {
+      maxBytes: 2 * 1024 * 1024,
+      timeoutMs: 40_000,
+      accept: (t) => t.startsWith('text/plain') || t.startsWith('text/markdown'),
+    })
+    const text = rendered.body.toString('utf8').replace(/\r/g, '').trim()
+    if (text.length >= MIN_TEXT) {
+      console.log(JSON.stringify({ event: 'read_via_jina', url: page.url, chars: text.length }))
+      return { ...parsed, text, rendered: true }
+    }
+  } catch (err) {
+    console.error(JSON.stringify({ event: 'jina_failed', url: page.url, message: err.message }))
+  }
+  return parsed
 }
 
 export async function extract(entry, page) {
@@ -125,7 +147,7 @@ export async function enrichEntry(store, id) {
   const entry = store.get(id)
   if (!entry.link) throw new HttpError(400, 'no_link', 'This entry has no website')
   const page = await readSite(entry.link)
-  if (page.text.length < 200) throw new HttpError(502, 'fetch_failed', 'The page has almost no readable text')
+  if (page.text.length < MIN_TEXT) throw new HttpError(502, 'fetch_failed', 'The page has almost no readable text')
   const data = await extract(entry, page)
   let changed = []
   const e = await store.mutate(id, undefined, (draft) => {

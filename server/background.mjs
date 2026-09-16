@@ -45,12 +45,8 @@ export class Background {
         try {
           const e = this.store.get(id)
           if (!e.link) continue
-          if (llmConfigured() && !e.enriched) {
-            const { page } = await enrichEntry(this.store, id)
-            await huntLogo(this.store, id, page).catch(() => null)
-          } else {
-            await huntLogo(this.store, id).catch(() => null)
-          }
+          await huntLogo(this.store, id).catch(() => null)
+          if (llmConfigured() && !e.enriched) await enrichEntry(this.store, id)
         } catch (err) {
           console.error(JSON.stringify({ event: 'background_failed', id, message: err.message }))
           // Nicht ewig wiederholen: als gelesen markieren, mit Fehler.

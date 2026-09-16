@@ -19,7 +19,9 @@ Programm-Tracker in Emil und werden dort zurückgeschrieben. Oberfläche Englisc
 - `src/bubbles/` Layout (Hex-Raster mit Hash-Jitter), Drift (ein rAF-Loop, transform, hält bei Hover), Glas-CSS
 - `src/views/` Login, Home (Pille: Sign up / Signed up / Reach out), Board, ReachOut
 - `src/board/` Overview, Kanban (dnd-kit), Contacts, Comments, News, EditEntry
-- `server/` nur node:http: `http.mjs` (Fehlerformat, Origin-Check, Limits), `auth.mjs`, `store.mjs`, `ops.mjs`, `tracker.mjs`, `news.mjs`, `logos.mjs`, `routes.mjs`
+- `server/` nur node:http: `http.mjs` (Fehlerformat, Origin-Check, Limits), `auth.mjs`, `store.mjs`, `ops.mjs`, `tracker.mjs`, `news.mjs`, `logos.mjs` (Upload + Logo-Suche), `fetch.mjs` (SSRF-sicherer Fetch, HTML zu Text), `enrich.mjs` (Webseite lesen, Claude zieht Felder), `background.mjs` (Warteschlange: neue und sichtbare Einträge lesen), `routes.mjs` (auch Agent-API)
+- `shared/near.mjs` eine Quelle für Client und Server: welche Orte als erreichbar gelten (Deutschland plus Remote)
+- `docs/agent-api.md` Vertrag für Terminals und Agenten (Bearer `HUB_AGENT_TOKENS`, `/api/agent/status`); Skill dazu in `~/.claude/skills/hub`
 - `data/` (gitignored) JSON je Eintrag, `sessions.json`, `partners.json`, `tracker-cache.json`, `logos/`
 
 ## Regeln, die hier gelten
@@ -27,7 +29,8 @@ Programm-Tracker in Emil und werden dort zurückgeschrieben. Oberfläche Englisc
 - Vertrag zwischen Client und Server steht in `src/lib/types.ts`; Änderungen nur additiv.
 - Jede Änderung an einem Eintrag ist eine Operation `POST /api/entries/:id/<op>` mit `version`; alte Version gibt 409 samt frischem Eintrag. Listen-Ops wiederholt der Client einmal, Textfelder nur, wenn der alte Wert noch stimmt.
 - Tracker-eigene Felder (name, link, dates.text, location, deadline, deadlineNote) sind gesperrt, solange die Zeile in Emil existiert. Verschwindet sie, bleibt der Eintrag mit `tracker.missingSince`.
-- Der Server holt nie fremde URLs außer Tavily und Emil. Logos: Upload mit Magic-Bytes, Favicon-Kette läuft im Browser.
+- Fremde URLs holt nur `fetch.mjs`: kein privates Netz (auch nicht per DNS oder Redirect), Limits, nur erwartete Typen. Webseite lesen geht über die claude-code-api auf dem VPS (`CLAUDE_API_URL`, Host-Netz), füllt nur leere Felder.
+- Logos: Upload von Hand gewinnt immer, sonst `auto` von der Webseite (apple-touch-icon), sonst Favicon-Kette im Browser.
 - Secrets nur in `.env` (lokal) bzw. `/opt/hub/.env` (VPS). Variablen siehe `.env.example`.
 - Design: weiß, schwarz, ein Akzent (`--primary`), Rot nur unter 3 Tagen Frist. Keine Emojis, keine Gedankenstriche in sichtbarem Text. Stift-Icon plus Modal statt Inline-Dropdowns. Modal: Schließen links, Primär rechts.
 
@@ -47,3 +50,5 @@ Programm-Tracker in Emil und werden dort zurückgeschrieben. Oberfläche Englisc
 - Google-s2-Favicons leiten auf `*.gstatic.com` um, deshalb steht der Host in der CSP.
 - Automatisierte Klicks (Astro, Playwright) scheitern an driftenden Blasen; per Skript klicken oder `prefers-reduced-motion` setzen.
 - Emils `deploy.sh` verlangt einen sauberen Arbeitsbaum.
+- Der Container läuft im Host-Netz (Emil und claude-code-api lauschen nur auf 127.0.0.1), deshalb `HOST=127.0.0.1` im Container.
+- Neue Ordner müssen in Dockerfile UND deploy.sh (rsync) stehen, sonst startet der Container nicht.
