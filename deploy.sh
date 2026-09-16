@@ -26,11 +26,12 @@ npm test >/dev/null
 echo "==> 2/5  Frontend bauen"
 npm run build >/dev/null
 
-echo "==> 3/5  dist/, server/, Dockerfile hochladen"
+echo "==> 3/5  dist/, server/, shared/, Dockerfile hochladen"
 ssh "$VPS" "mkdir -p $ZIEL/data && test -f $ZIEL/.env || { echo 'FEHLT: $ZIEL/.env auf dem Server (siehe .env.example)'; exit 1; }"
 # -rlptD statt -a: ohne -o/-g fasst rsync den Eigentümer nicht an.
 rsync -rlptD --delete --exclude '.DS_Store' dist/ "$VPS:$ZIEL/dist/"
 rsync -rlptD --delete --exclude '.DS_Store' server/ "$VPS:$ZIEL/server/"
+rsync -rlptD --delete --exclude '.DS_Store' --exclude '*.d.mts' shared/ "$VPS:$ZIEL/shared/"
 rsync -lpt Dockerfile .dockerignore "$VPS:$ZIEL/"
 
 echo "==> 4/5  Image bauen und Container tauschen"

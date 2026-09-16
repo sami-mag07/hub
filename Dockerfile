@@ -8,6 +8,7 @@ ENV HOST=0.0.0.0
 
 COPY dist ./dist
 COPY server ./server
+COPY shared ./shared
 
 # Ablage für Einträge, Sessions, Logos. Im Betrieb ein Bind-Mount, damit
 # ein Container-Tausch nichts verliert. Ohne Mount muss der Ordner node gehören.
