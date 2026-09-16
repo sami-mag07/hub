@@ -17,7 +17,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Plus } from 'lucide-react'
 import { LABELS, TASK_STATUS, type Entry, type Label, type Priority, type Task, type TaskStatus } from '../lib/types'
 import type { OpFn } from '../views/Board'
-import { ErrorLine, Field, Input, Modal, Select, Textarea } from '../components/ui'
+import { ErrorLine, Field, Input, Modal, SectionTitle, Select, Textarea, useConfirm } from '../components/ui'
 import { daysUntil, formatDate } from '../lib/format'
 
 const PRIORITIES: { key: Priority; title: string }[] = [
@@ -97,31 +97,37 @@ export function Kanban({ entry, op, userName }: { entry: Entry; op: OpFn; userNa
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <label className="sr-only" htmlFor="f-label">
+      <SectionTitle
+        action={
+          <>
+            <label className="sr-only" htmlFor="f-label">
           Filter by label
         </label>
-        <select id="f-label" className="input !w-auto !py-1.5" value={label} onChange={(e) => setLabel(e.target.value as Label | '')}>
-          <option value="">All labels</option>
-          {LABELS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="f-prio">
-          Filter by priority
-        </label>
-        <select id="f-prio" className="input !w-auto !py-1.5" value={priority} onChange={(e) => setPriority(e.target.value as Priority | '')}>
-          <option value="">All priorities</option>
-          {PRIORITIES.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-        {error && <span className="text-[13px] text-[var(--danger)]">{error}</span>}
-      </div>
+            <select id="f-label" className="input !w-auto !py-1.5 !text-[13px]" value={label} onChange={(e) => setLabel(e.target.value as Label | '')}>
+              <option value="">All labels</option>
+              {LABELS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="f-prio">
+              Filter by priority
+            </label>
+            <select id="f-prio" className="input !w-auto !py-1.5 !text-[13px]" value={priority} onChange={(e) => setPriority(e.target.value as Priority | '')}>
+              <option value="">All priorities</option>
+              {PRIORITIES.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          </>
+        }
+      >
+        Board
+      </SectionTitle>
+      {error && <ErrorLine>{error}</ErrorLine>}
 
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
         <div className="kanban">
@@ -163,7 +169,7 @@ function Column({
     <section ref={setNodeRef} className={`kanban-col ${isOver ? 'over' : ''}`} aria-labelledby={`col-${id}`}>
       <div className="flex items-center justify-between px-1 mb-2">
         <h2 id={`col-${id}`} className="text-[13px] font-semibold text-[var(--text-muted)]">
-          {title} <span className="tnum font-medium text-[var(--text-faint)]">{items.length}</span>
+          {title}
         </h2>
         <button type="button" className="btn btn-ghost btn-icon !w-7 !h-7" aria-label={`Add task to ${title}`} onClick={onAdd}>
           <Plus size={15} />
@@ -252,6 +258,7 @@ function TaskForm({
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm, dialog } = useConfirm()
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }))
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -264,7 +271,7 @@ function TaskForm({
     else setError(r.message)
   }
   const remove = async () => {
-    if (!task || !confirm(`Delete task "${task.title}"?`)) return
+    if (!task || !(await confirm(`Delete "${task.title}"?`))) return
     const r = await op('tasks/remove', { taskId: task.id })
     if (r.ok) onClose()
     else setError(r.message)
@@ -335,6 +342,7 @@ function TaskForm({
         </datalist>
         {error && <ErrorLine>{error}</ErrorLine>}
       </form>
+      {dialog}
     </Modal>
   )
 }

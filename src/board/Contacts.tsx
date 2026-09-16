@@ -1,31 +1,24 @@
 import { useState, type FormEvent } from 'react'
 import { Pencil, Plus } from 'lucide-react'
-import type { Contact, ContactStatus, Entry } from '../lib/types'
+import { CONTACT_STATUS as STATUS, type Contact, type Entry } from '../lib/types'
 import type { OpFn } from '../views/Board'
-import { Empty, ErrorLine, Field, Input, Modal, Select, Textarea } from '../components/ui'
-
-const STATUS: { key: ContactStatus; title: string }[] = [
-  { key: 'open', title: 'Open' },
-  { key: 'contacted', title: 'Contacted' },
-  { key: 'replied', title: 'Replied' },
-]
+import { Empty, ErrorLine, Field, Input, Modal, SectionTitle, Select, Textarea, useConfirm } from '../components/ui'
 
 export function Contacts({ entry, op }: { entry: Entry; op: OpFn }) {
   const [editing, setEditing] = useState<Contact | 'new' | null>(null)
   const list = [...entry.contacts].sort((a, b) => STATUS.findIndex((s) => s.key === a.status) - STATUS.findIndex((s) => s.key === b.status))
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[14px] text-[var(--text-muted)]">
-          {entry.contacts.length === 0
-            ? ''
-            : `${entry.contacts.filter((c) => c.status === 'open').length} open · ${entry.contacts.filter((c) => c.status === 'replied').length} replied`}
-        </p>
-        <button type="button" className="btn btn-primary" onClick={() => setEditing('new')}>
-          <Plus size={16} />
-          Add
-        </button>
-      </div>
+      <SectionTitle
+        action={
+          <button type="button" className="btn" onClick={() => setEditing('new')}>
+            <Plus size={16} />
+            Add
+          </button>
+        }
+      >
+        Outreach
+      </SectionTitle>
       {list.length === 0 ? (
         <Empty>Nobody to reach out to yet.</Empty>
       ) : (
@@ -60,6 +53,7 @@ function ContactForm({ contact, op, onClose }: { contact: Contact | null; op: Op
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm, dialog } = useConfirm()
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }))
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -71,7 +65,7 @@ function ContactForm({ contact, op, onClose }: { contact: Contact | null; op: Op
     else setError(r.message)
   }
   const remove = async () => {
-    if (!contact || !confirm(`Remove ${contact.name}?`)) return
+    if (!contact || !(await confirm(`Remove ${contact.name}?`, 'Remove'))) return
     const r = await op('contacts/remove', { contactId: contact.id })
     if (r.ok) onClose()
     else setError(r.message)
@@ -119,6 +113,7 @@ function ContactForm({ contact, op, onClose }: { contact: Contact | null; op: Op
         </Field>
         {error && <ErrorLine>{error}</ErrorLine>}
       </form>
+      {dialog}
     </Modal>
   )
 }

@@ -10,7 +10,7 @@ export function logoSources(e: Pick<EntrySummary, 'id' | 'logo' | 'link' | 'vers
   if (e.logo.kind === 'initials') return []
   const host = domainOf(e.link)
   if (!host) return []
-  return [`https://www.google.com/s2/favicons?domain=${host}&sz=128`, `https://icons.duckduckgo.com/ip3/${host}.ico`]
+  return [`https://www.google.com/s2/favicons?domain=${host}&sz=256`, `https://icons.duckduckgo.com/ip3/${host}.ico`]
 }
 
 export function Logo({ entry, className, transition }: { entry: EntrySummary; className?: string; transition?: boolean }) {
@@ -53,8 +53,14 @@ export function Bubble({ entry, onOpen, size }: { entry: EntrySummary; onOpen: (
   const { days, what } = relevantDays(entry)
   const urgent = days !== null && days <= 3
   return (
-    <div className="bubble-wrap" data-id={entry.id} style={size ? { width: size, height: size } : undefined}>
-      <button type="button" className="bubble" aria-label={`Open ${entry.name}`} onClick={() => onOpen(entry.id)}>
+    <div className="bubble-wrap" data-id={entry.id}>
+      <button
+        type="button"
+        className="bubble glass"
+        aria-label={`Open ${entry.name}`}
+        style={size ? { width: size, height: size } : undefined}
+        onClick={() => onOpen(entry.id)}
+      >
         <span className="bubble-plate">
           <Logo entry={entry} transition />
         </span>

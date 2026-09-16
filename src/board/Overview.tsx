@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ExternalLink, Pencil, Plus } from 'lucide-react'
 import type { Entry, Link, LinkType } from '../lib/types'
 import type { OpFn } from '../views/Board'
-import { ErrorLine, Field, Input, Modal, Select, Textarea } from '../components/ui'
+import { ErrorLine, Field, Input, Modal, SectionTitle, Select, Textarea, useConfirm } from '../components/ui'
 import { domainOf } from '../lib/api'
 
 const LINK_TYPES: { key: LinkType; title: string }[] = [
@@ -21,78 +21,50 @@ const INFO: { key: keyof Entry['info']; title: string }[] = [
   { key: 'cost', title: 'Cost' },
 ]
 
-export function Overview({ entry, op }: { entry: Entry; op: OpFn }) {
-  const [editLink, setEditLink] = useState<Link | 'new' | null>(null)
+// Gefüllte Abschnitte stehen als Text mit Stift, leere als eine Zeile
+// gestrichelter Knöpfe. Fünfmal "Add" untereinander wäre Slop.
+export function About({ entry, op }: { entry: Entry; op: OpFn }) {
   const [editInfo, setEditInfo] = useState<keyof Entry['info'] | null>(null)
-
+  const filled = INFO.filter(({ key }) => entry.info[key])
+  const empty = INFO.filter(({ key }) => !entry.info[key])
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="grid gap-6 min-w-0">
-        {INFO.filter(({ key }) => entry.info[key]).map(({ key, title }) => (
-          <section key={key}>
-            <div className="flex items-center gap-1 mb-1">
-              <h2 className="text-[15px] font-semibold">{title}</h2>
-              <button type="button" className="btn btn-ghost btn-icon !w-8 !h-8" aria-label={`Edit ${title}`} onClick={() => setEditInfo(key)}>
-                <Pencil size={14} />
+    <div>
+      <SectionTitle>About</SectionTitle>
+      <div className="grid gap-5">
+        {filled.map(({ key, title }) => (
+          <div key={key}>
+            <div className="flex items-center gap-1 mb-0.5">
+              <h3 className="text-[14px] font-semibold">{title}</h3>
+              <button type="button" className="btn btn-ghost btn-icon !w-7 !h-7" aria-label={`Edit ${title}`} onClick={() => setEditInfo(key)}>
+                <Pencil size={13} />
               </button>
             </div>
             <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{entry.info[key]}</p>
-          </section>
+          </div>
         ))}
-        {INFO.some(({ key }) => !entry.info[key]) && (
+        {entry.tracker && (entry.tracker.notiz || entry.tracker.kosten) && (
+          <div>
+            <h3 className="text-[14px] font-semibold mb-0.5">From the tracker</h3>
+            {entry.tracker.kosten && <p className="text-[15px] leading-relaxed">{entry.tracker.kosten}</p>}
+            {entry.tracker.notiz && <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{entry.tracker.notiz}</p>}
+          </div>
+        )}
+        {empty.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {INFO.filter(({ key }) => !entry.info[key]).map(({ key, title }) => (
-              <button key={key} type="button" className="btn btn-ghost !border !border-dashed !border-[var(--border-strong)]" onClick={() => setEditInfo(key)}>
+            {empty.map(({ key, title }) => (
+              <button
+                key={key}
+                type="button"
+                className="btn btn-ghost !border !border-dashed !border-[var(--border-strong)] !bg-transparent"
+                onClick={() => setEditInfo(key)}
+              >
                 <Plus size={14} />
                 {title}
               </button>
             ))}
           </div>
         )}
-        {entry.tracker && (entry.tracker.notiz || entry.tracker.kosten) && (
-          <section>
-            <h2 className="text-[15px] font-semibold mb-1">From the tracker</h2>
-            {entry.tracker.kosten && <p className="text-[15px] leading-relaxed">{entry.tracker.kosten}</p>}
-            {entry.tracker.notiz && <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{entry.tracker.notiz}</p>}
-          </section>
-        )}
       </div>
-
-      <aside>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[15px] font-semibold">Links</h2>
-          <button type="button" className="btn btn-ghost btn-icon !w-8 !h-8" aria-label="Add link" onClick={() => setEditLink('new')}>
-            <Plus size={16} />
-          </button>
-        </div>
-        <ul className="card divide-y divide-[var(--border)]">
-          {entry.link && (
-            <li className="flex items-center gap-2 px-3 py-2.5">
-              <a href={entry.link} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 hover:underline">
-                <span className="block text-[14px] font-medium truncate">{entry.kind === 'hackathon' ? 'Website' : 'Website or repo'}</span>
-                <span className="block text-[12px] text-[var(--text-muted)] truncate">{domainOf(entry.link)}</span>
-              </a>
-              <ExternalLink size={14} className="text-[var(--text-faint)] shrink-0" aria-hidden="true" />
-            </li>
-          )}
-          {entry.links.map((l) => (
-            <li key={l.id} className="flex items-center gap-2 px-3 py-2.5">
-              <a href={l.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 hover:underline">
-                <span className="block text-[14px] font-medium truncate">{l.label}</span>
-                <span className="block text-[12px] text-[var(--text-muted)] truncate">{domainOf(l.url)}</span>
-              </a>
-              <button type="button" className="btn btn-ghost btn-icon !w-8 !h-8 shrink-0" aria-label={`Edit link ${l.label}`} onClick={() => setEditLink(l)}>
-                <Pencil size={14} />
-              </button>
-            </li>
-          ))}
-          {!entry.link && entry.links.length === 0 && (
-            <li className="px-3 py-3 text-[14px] text-[var(--text-muted)]">No links yet.</li>
-          )}
-        </ul>
-      </aside>
-
-      {editLink && <LinkForm link={editLink === 'new' ? null : editLink} op={op} onClose={() => setEditLink(null)} />}
       {editInfo && (
         <InfoForm
           title={INFO.find((i) => i.key === editInfo)!.title}
@@ -106,12 +78,69 @@ export function Overview({ entry, op }: { entry: Entry; op: OpFn }) {
   )
 }
 
+export function Links({ entry, op }: { entry: Entry; op: OpFn }) {
+  const [editLink, setEditLink] = useState<Link | 'new' | null>(null)
+  return (
+    <div>
+      <SectionTitle
+        action={
+          <button type="button" className="btn btn-ghost btn-icon" aria-label="Add link" onClick={() => setEditLink('new')}>
+            <Plus size={16} />
+          </button>
+        }
+      >
+        Links
+      </SectionTitle>
+      <ul className="grid gap-1">
+        {entry.link && (
+          <li>
+            <a
+              href={entry.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 -mx-3 hover:bg-white/60"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-medium truncate">Website</span>
+                <span className="block text-[12px] text-[var(--text-muted)] truncate">{domainOf(entry.link)}</span>
+              </span>
+              <ExternalLink size={14} className="text-[var(--text-muted)] shrink-0" aria-hidden="true" />
+            </a>
+          </li>
+        )}
+        {entry.links.map((l) => (
+          <li key={l.id} className="flex items-center gap-1 -mx-3">
+            <a
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-xl px-3 py-2 min-w-0 flex-1 hover:bg-white/60"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-medium truncate">{l.label}</span>
+                <span className="block text-[12px] text-[var(--text-muted)] truncate">{domainOf(l.url)}</span>
+              </span>
+              <ExternalLink size={14} className="text-[var(--text-muted)] shrink-0" aria-hidden="true" />
+            </a>
+            <button type="button" className="btn btn-ghost btn-icon !w-8 !h-8 shrink-0" aria-label={`Edit link ${l.label}`} onClick={() => setEditLink(l)}>
+              <Pencil size={13} />
+            </button>
+          </li>
+        ))}
+        {!entry.link && entry.links.length === 0 && <li className="text-[14px] text-[var(--text-muted)]">No links yet.</li>}
+      </ul>
+      {editLink && <LinkForm link={editLink === 'new' ? null : editLink} op={op} onClose={() => setEditLink(null)} />}
+    </div>
+  )
+}
+
 function LinkForm({ link, op, onClose }: { link: Link | null; op: OpFn; onClose: () => void }) {
   const [label, setLabel] = useState(link?.label ?? '')
   const [url, setUrl] = useState(link?.url ?? '')
   const [type, setType] = useState<LinkType>(link?.type ?? 'other')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm, dialog } = useConfirm()
   const pickType = (t: LinkType) => {
     setType(t)
     if (!label || LINK_TYPES.some((x) => x.title === label)) setLabel(t === 'other' ? '' : LINK_TYPES.find((x) => x.key === t)!.title)
@@ -125,7 +154,7 @@ function LinkForm({ link, op, onClose }: { link: Link | null; op: OpFn; onClose:
     else setError(r.message)
   }
   const remove = async () => {
-    if (!link || !confirm(`Remove link ${link.label}?`)) return
+    if (!link || !(await confirm(`Remove link ${link.label}?`, 'Remove'))) return
     const r = await op('links/remove', { linkId: link.id })
     if (r.ok) onClose()
     else setError(r.message)
@@ -165,6 +194,7 @@ function LinkForm({ link, op, onClose }: { link: Link | null; op: OpFn; onClose:
         </Field>
         {error && <ErrorLine>{error}</ErrorLine>}
       </form>
+      {dialog}
     </Modal>
   )
 }

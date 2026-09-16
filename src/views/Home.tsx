@@ -75,7 +75,7 @@ export function Home({ view, userName, onLogout }: { view: View; userName: strin
       </div>
 
       <header className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 sm:px-6 z-10">
-        <h1 className="text-[15px] font-semibold tracking-tight">The Hub</h1>
+        <h1 className="wordmark text-[24px] leading-none">The Hub</h1>
         <div className="flex items-center gap-1">
           <button type="button" className="btn btn-ghost btn-icon" aria-label="New project" onClick={() => setCreating(true)}>
             <Plus size={20} />
@@ -140,7 +140,7 @@ export function Home({ view, userName, onLogout }: { view: View; userName: strin
         </p>
       )}
 
-      <nav className="pill" aria-label="View">
+      <nav className="pill glass" aria-label="View">
         {VIEWS.map((v) => (
           <button key={v.key} type="button" aria-pressed={view === v.key} onClick={() => navigate(v.path)}>
             {v.title}

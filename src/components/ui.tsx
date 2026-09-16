@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useId, useRef, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 // Modal: Schließen links, primäre Aktion rechts. Fokus springt hinein,
@@ -46,7 +47,9 @@ export function Modal({
       prev?.focus()
     }
   }, [onClose])
-  return (
+  // Portal: ein Element mit backdrop-filter fängt position:fixed ein, das
+  // Modal muss deshalb außerhalb der Glas-Karten liegen.
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="flex items-center justify-between mb-4">
@@ -61,6 +64,16 @@ export function Modal({
         {children}
         {footer && <div className="flex justify-end gap-2 mt-5">{footer}</div>}
       </div>
+    </div>,
+    document.body,
+  )
+}
+
+export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-3 min-h-[36px]">
+      <h2 className="text-[17px] font-semibold tracking-tight">{children}</h2>
+      {action && <div className="flex items-center gap-2">{action}</div>}
     </div>
   )
 }
@@ -79,7 +92,7 @@ export function Field({
     <label className="block mb-3" htmlFor={id}>
       <span className="block text-[13px] font-medium text-[var(--text-muted)] mb-1">{label}</span>
       <FieldId.Provider value={id}>{children}</FieldId.Provider>
-      {hint && <span className="block text-[12px] text-[var(--text-faint)] mt-1">{hint}</span>}
+      {hint && <span className="block text-[12px] text-[var(--text-muted)] mt-1">{hint}</span>}
     </label>
   )
 }
@@ -118,4 +131,37 @@ export function ErrorLine({ children }: { children: ReactNode }) {
 
 export function Skeleton({ h = 16, w = '100%', className = '' }: { h?: number; w?: string | number; className?: string }) {
   return <div className={`skeleton ${className}`} style={{ height: h, width: w }} aria-hidden="true" />
+}
+
+// Bestätigung im eigenen Modal statt window.confirm: Schließen links,
+// die Aktion rechts. Gibt ein Promise<boolean> und das Element zum Rendern.
+export function useConfirm() {
+  const [state, setState] = useState<{ message: string; action: string; resolve: (ok: boolean) => void } | null>(null)
+  const confirm = useCallback(
+    (message: string, action = 'Delete') => new Promise<boolean>((resolve) => setState({ message, action, resolve })),
+    [],
+  )
+  const close = useCallback(
+    (ok: boolean) => {
+      setState((s) => {
+        s?.resolve(ok)
+        return null
+      })
+    },
+    [],
+  )
+  const dialog = state ? (
+    <Modal
+      title={state.action}
+      onClose={() => close(false)}
+      footer={
+        <button type="button" className="btn btn-primary" onClick={() => close(true)} autoFocus>
+          {state.action}
+        </button>
+      }
+    >
+      <p className="text-[15px]">{state.message}</p>
+    </Modal>
+  ) : null
+  return { confirm, dialog }
 }

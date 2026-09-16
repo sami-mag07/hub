@@ -2,13 +2,14 @@ import { useState, type FormEvent } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { Entry } from '../lib/types'
 import type { OpFn } from '../views/Board'
-import { Empty, ErrorLine } from '../components/ui'
+import { Empty, ErrorLine, SectionTitle, useConfirm } from '../components/ui'
 import { formatTime } from '../lib/format'
 
 export function Comments({ entry, op, userName }: { entry: Entry; op: OpFn; userName: string }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm, dialog } = useConfirm()
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!text.trim()) return
@@ -19,13 +20,14 @@ export function Comments({ entry, op, userName }: { entry: Entry; op: OpFn; user
     else setError(r.message)
   }
   const remove = async (id: string) => {
-    if (!confirm('Delete this comment?')) return
+    if (!(await confirm('Delete this comment?'))) return
     const r = await op('comments/remove', { commentId: id })
     if (!r.ok) setError(r.message)
   }
   const list = [...entry.comments].sort((a, b) => a.at.localeCompare(b.at))
   return (
-    <div className="max-w-[640px]">
+    <div>
+      <SectionTitle>Comments</SectionTitle>
       {list.length === 0 ? (
         <Empty>No comments yet.</Empty>
       ) : (
@@ -74,6 +76,7 @@ export function Comments({ entry, op, userName }: { entry: Entry; op: OpFn; user
           </button>
         </div>
       </form>
+      {dialog}
     </div>
   )
 }

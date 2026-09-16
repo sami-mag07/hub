@@ -12,6 +12,12 @@ export type PartnerType = 'sponsor' | 'mentor' | 'partner'
 export const LABELS = ['Tech', 'Pitch', 'Orga', 'Outreach', 'Admin'] as const
 export type Label = (typeof LABELS)[number]
 
+export const CONTACT_STATUS: { key: ContactStatus; title: string }[] = [
+  { key: 'open', title: 'Open' },
+  { key: 'contacted', title: 'Contacted' },
+  { key: 'replied', title: 'Replied' },
+]
+
 export const TASK_STATUS: { key: TaskStatus; title: string }[] = [
   { key: 'todo', title: 'To do' },
   { key: 'doing', title: 'In progress' },

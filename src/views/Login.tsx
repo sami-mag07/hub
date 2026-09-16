@@ -45,7 +45,7 @@ export function Login({ onDone }: { onDone: (name: string) => void }) {
   return (
     <main className="min-h-full grid place-items-center px-4">
       <div className="w-full max-w-[340px]">
-        <h1 className="text-[28px] font-semibold tracking-tight text-center mb-8">The Hub</h1>
+        <h1 className="wordmark text-[44px] text-center mb-8">The Hub</h1>
         {step === 'password' ? (
           <form onSubmit={submitPassword}>
             <label className="sr-only" htmlFor="pw">

@@ -3,7 +3,7 @@ import { Pencil, RefreshCw } from 'lucide-react'
 import type { Entry } from '../lib/types'
 import type { OpFn } from '../views/Board'
 import { api, ApiError, domainOf } from '../lib/api'
-import { Empty, ErrorLine, Field, Input, Modal, Skeleton } from '../components/ui'
+import { Empty, ErrorLine, Field, Input, Modal, SectionTitle, Skeleton } from '../components/ui'
 import { formatTime } from '../lib/format'
 
 export function News({ entry, op, apply }: { entry: Entry; op: OpFn; apply: (e: Entry) => void }) {
@@ -26,20 +26,25 @@ export function News({ entry, op, apply }: { entry: Entry; op: OpFn; apply: (e: 
   }
 
   return (
-    <div className="max-w-[720px]">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <button type="button" className="btn" onClick={refresh} disabled={busy}>
-          <RefreshCw size={15} className={busy ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-        <span className="text-[13px] text-[var(--text-muted)] tnum">
-          {entry.news.fetchedAt ? `Fetched ${formatTime(entry.news.fetchedAt)}` : 'Not fetched yet'}
-        </span>
-        <button type="button" className="btn btn-ghost ml-auto" onClick={() => setEditQuery(true)}>
-          <Pencil size={14} />
-          {entry.news.query ? 'Search terms' : 'Set search terms'}
-        </button>
-      </div>
+    <div>
+      <SectionTitle
+        action={
+          <>
+            <span className="text-[13px] text-[var(--text-muted)] tnum hidden sm:inline">
+              {entry.news.fetchedAt ? `Fetched ${formatTime(entry.news.fetchedAt)}` : ''}
+            </span>
+            <button type="button" className="btn btn-ghost btn-icon" aria-label="Search terms" onClick={() => setEditQuery(true)}>
+              <Pencil size={15} />
+            </button>
+            <button type="button" className="btn" onClick={refresh} disabled={busy}>
+              <RefreshCw size={15} className={busy ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </>
+        }
+      >
+        News
+      </SectionTitle>
       {error && <ErrorLine>{error}</ErrorLine>}
       {busy && (
         <div className="grid gap-3">

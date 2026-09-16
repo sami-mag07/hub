@@ -70,7 +70,7 @@ export function BubbleField({ entries, onOpen }: { entries: EntrySummary[]; onOp
     return (
       <div className="bubble-grid" role="list" aria-label="Bubbles">
         {ordered.map((e) => (
-          <div key={e.id} role="listitem" style={{ width: 104, height: 104 }}>
+          <div key={e.id} role="listitem" className="contents">
             <Bubble entry={e} onOpen={onOpen} size={104} />
           </div>
         ))}

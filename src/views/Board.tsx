@@ -7,20 +7,21 @@ import type { Entry } from '../lib/types'
 import { Logo, relevantDays } from '../bubbles/Bubble'
 import { formatDate, formatDays } from '../lib/format'
 import { Empty, Skeleton } from '../components/ui'
-import { Overview } from '../board/Overview'
+import { About, Links } from '../board/Overview'
 import { Kanban } from '../board/Kanban'
 import { Contacts } from '../board/Contacts'
 import { Comments } from '../board/Comments'
 import { News } from '../board/News'
 import { EditEntry } from '../board/EditEntry'
 
-type Tab = 'overview' | 'board' | 'outreach' | 'comments' | 'news'
-const TABS: { key: Tab; title: string }[] = [
-  { key: 'overview', title: 'Overview' },
-  { key: 'board', title: 'Board' },
-  { key: 'outreach', title: 'Outreach' },
-  { key: 'comments', title: 'Comments' },
-  { key: 'news', title: 'News' },
+// Die Seite einer Blase: alles auf einmal, als Glas-Karten auf demselben
+// Hintergrund wie die Startseite. Die Pille unten springt zu den Abschnitten.
+const SECTIONS = [
+  { id: 'about', title: 'About' },
+  { id: 'board', title: 'Board' },
+  { id: 'outreach', title: 'Outreach' },
+  { id: 'comments', title: 'Comments' },
+  { id: 'news', title: 'News' },
 ]
 
 const STATUS_TITLE: Record<string, string> = {
@@ -36,40 +37,32 @@ export type OpFn = ReturnType<typeof useEntry>['op']
 
 export function Board({ id, userName, onUnauthorized }: { id: string; userName: string; onUnauthorized: () => void }) {
   const { entry, error, op, apply, reload } = useEntry(id)
-  const [tab, setTab] = useState<Tab>('overview')
   const [editing, setEditing] = useState(false)
   const [signupBusy, setSignupBusy] = useState(false)
   const [signupError, setSignupError] = useState<string | null>(null)
+  const [active, setActive] = useState('about')
 
   useEffect(() => {
     if (error === 'unauthorized') onUnauthorized()
   }, [error, onUnauthorized])
 
-  const back = () => navigate('/')
+  // Welcher Abschnitt gerade oben im Bild ist, für die Pille.
+  useEffect(() => {
+    if (!entry) return
+    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[]
+    const io = new IntersectionObserver(
+      (items) => {
+        const hit = items.filter((i) => i.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+        if (hit) setActive(hit.target.id)
+      },
+      { rootMargin: '-20% 0px -60% 0px' },
+    )
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [entry])
 
-  if (error === 'not-found') {
-    return (
-      <Shell onBack={back}>
-        <Empty>This entry does not exist anymore.</Empty>
-      </Shell>
-    )
-  }
-  if (!entry) {
-    return (
-      <Shell onBack={back}>
-        <div className="flex items-center gap-4 mb-6">
-          <Skeleton h={72} w={72} className="!rounded-full" />
-          <div className="flex-1">
-            <Skeleton h={22} w="40%" />
-            <Skeleton h={14} w="60%" className="mt-2" />
-          </div>
-        </div>
-        <Skeleton h={38} w={360} className="!rounded-full" />
-        <Skeleton h={160} className="mt-6" />
-        {error && <p className="text-[13px] text-[var(--text-muted)] mt-4">{error}</p>}
-      </Shell>
-    )
-  }
+  const back = () => navigate('/')
+  const jump = (sid: string) => document.getElementById(sid)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   const signup = async (status: 'beworben' | 'offen') => {
     setSignupBusy(true)
@@ -84,63 +77,106 @@ export function Board({ id, userName, onUnauthorized }: { id: string; userName: 
   }
 
   return (
-    <Shell onBack={back}>
-      <Header
-        entry={entry}
-        onEdit={() => setEditing(true)}
-        onPin={() => void op('pin', { pinned: !entry.pinned })}
-        onSignup={signup}
-        signupBusy={signupBusy}
-        signupError={signupError}
-      />
+    <div className="relative min-h-full">
+      <div className="field-bg" aria-hidden="true">
+        <span className="b1" />
+        <span className="b2" />
+        <span className="b3" />
+      </div>
 
-      <div className="tabs inline-flex max-w-full mt-6 mb-6" role="tablist" aria-label="Sections">
-        {TABS.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
-            {t.title}
-            {t.key === 'board' && entry.tasks.some((x) => x.status !== 'done') && (
-              <span className="text-[var(--text-faint)] font-medium ml-1 tnum"> {entry.tasks.filter((x) => x.status !== 'done').length}</span>
-            )}
+      <div className="relative z-[1] max-w-[1040px] mx-auto px-4 sm:px-6 pb-32">
+        <div className="h-14 flex items-center justify-between">
+          <button type="button" className="btn btn-ghost -ml-2 gap-2" onClick={back} aria-label="Back to the hub">
+            <ArrowLeft size={18} />
+            <span className="wordmark text-[22px] leading-none">The Hub</span>
           </button>
-        ))}
+          {entry && (
+            <div className="flex items-center gap-1">
+              <button type="button" className="btn btn-ghost btn-icon" aria-label="Edit entry" onClick={() => setEditing(true)}>
+                <Pencil size={17} />
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                aria-label={entry.pinned ? 'Unpin from home' : 'Pin to home'}
+                aria-pressed={entry.pinned}
+                onClick={() => void op('pin', { pinned: !entry.pinned })}
+              >
+                {entry.pinned ? <PinOff size={17} /> : <Pin size={17} />}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {error === 'not-found' ? (
+          <Empty>This entry does not exist anymore.</Empty>
+        ) : !entry ? (
+          <div className="mt-4">
+            <div className="flex items-center gap-5">
+              <Skeleton h={88} w={88} className="!rounded-full" />
+              <div className="flex-1">
+                <Skeleton h={26} w="40%" />
+                <Skeleton h={14} w="60%" className="mt-2" />
+              </div>
+            </div>
+            <Skeleton h={220} className="mt-8 !rounded-3xl" />
+            {error && <p className="text-[13px] text-[var(--text-muted)] mt-4">{error}</p>}
+          </div>
+        ) : (
+          <>
+            <Header entry={entry} onSignup={signup} signupBusy={signupBusy} signupError={signupError} />
+
+            <div className="grid gap-4 mt-8 md:grid-cols-[minmax(0,1fr)_320px]">
+              <section id="about" className="glass-card glass p-5 sm:p-6 scroll-mt-4">
+                <About entry={entry} op={op} />
+              </section>
+              <section className="glass-card glass p-5 sm:p-6 self-start">
+                <Links entry={entry} op={op} />
+              </section>
+            </div>
+
+            <section id="board" className="glass-card glass p-5 sm:p-6 mt-4 scroll-mt-4">
+              <Kanban entry={entry} op={op} userName={userName} />
+            </section>
+
+            <div className="grid gap-4 mt-4 md:grid-cols-2">
+              <section id="outreach" className="glass-card glass p-5 sm:p-6 scroll-mt-4">
+                <Contacts entry={entry} op={op} />
+              </section>
+              <section id="comments" className="glass-card glass p-5 sm:p-6 scroll-mt-4">
+                <Comments entry={entry} op={op} userName={userName} />
+              </section>
+            </div>
+
+            <section id="news" className="glass-card glass p-5 sm:p-6 mt-4 scroll-mt-4">
+              <News entry={entry} op={op} apply={apply} />
+            </section>
+          </>
+        )}
       </div>
 
-      {tab === 'overview' && <Overview entry={entry} op={op} />}
-      {tab === 'board' && <Kanban entry={entry} op={op} userName={userName} />}
-      {tab === 'outreach' && <Contacts entry={entry} op={op} />}
-      {tab === 'comments' && <Comments entry={entry} op={op} userName={userName} />}
-      {tab === 'news' && <News entry={entry} op={op} apply={apply} />}
+      {entry && (
+        <nav className="pill glass" aria-label="Sections">
+          {SECTIONS.map((s) => (
+            <button key={s.id} type="button" aria-pressed={active === s.id} onClick={() => jump(s.id)}>
+              {s.title}
+            </button>
+          ))}
+        </nav>
+      )}
 
-      {editing && <EditEntry entry={entry} op={op} apply={apply} onClose={() => setEditing(false)} onChanged={reload} />}
-    </Shell>
-  )
-}
-
-function Shell({ children, onBack }: { children: React.ReactNode; onBack: () => void }) {
-  return (
-    <div className="min-h-full">
-      <div className="max-w-[960px] mx-auto px-4 sm:px-6 pt-3 pb-24">
-        <button type="button" className="btn btn-ghost -ml-2 mb-3" onClick={onBack}>
-          <ArrowLeft size={18} />
-          Hub
-        </button>
-        {children}
-      </div>
+      {editing && entry && <EditEntry entry={entry} op={op} apply={apply} onClose={() => setEditing(false)} onChanged={reload} />}
     </div>
   )
 }
 
 function Header({
   entry,
-  onEdit,
-  onPin,
   onSignup,
   signupBusy,
   signupError,
 }: {
   entry: Entry
-  onEdit: () => void
-  onPin: () => void
   onSignup: (status: 'beworben' | 'offen') => void
   signupBusy: boolean
   signupError: string | null
@@ -150,28 +186,14 @@ function Header({
   const missing = !!entry.tracker?.missingSince
   const meta = [entry.dates.text, entry.location].filter(Boolean).join(' · ')
   return (
-    <header className="flex flex-col sm:flex-row sm:items-start gap-4">
-      <div className="bubble-plate !w-[76px] !h-[76px] shrink-0 border border-[var(--border)] text-[22px]">
+    <header className="flex flex-col sm:flex-row sm:items-center gap-5 mt-4">
+      <div className="bubble-plate !w-[88px] !h-[88px] shrink-0 text-[26px]">
         <Logo entry={entry} transition />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <h1 className="text-[24px] font-semibold tracking-tight leading-tight">{entry.name}</h1>
-          <button type="button" className="btn btn-ghost btn-icon shrink-0" aria-label="Edit entry" onClick={onEdit}>
-            <Pencil size={16} />
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon shrink-0"
-            aria-label={entry.pinned ? 'Unpin from home' : 'Pin to home'}
-            aria-pressed={entry.pinned}
-            onClick={onPin}
-          >
-            {entry.pinned ? <PinOff size={16} /> : <Pin size={16} />}
-          </button>
-        </div>
-        {meta && <p className="text-[14px] text-[var(--text-muted)] mt-0.5">{meta}</p>}
-        <p className="text-[14px] mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        <h1 className="text-[30px] font-semibold tracking-tight leading-tight">{entry.name}</h1>
+        {meta && <p className="text-[15px] text-[var(--text-muted)] mt-0.5">{meta}</p>}
+        <p className="text-[15px] mt-1 flex flex-wrap gap-x-3 gap-y-1">
           {days !== null && (
             <span className={days <= 3 ? 'text-[var(--danger)] font-semibold' : ''}>
               {what === 'deadline' ? 'Apply by' : 'Starts'} {formatDate(what === 'deadline' ? entry.deadline : entry.dates.start)} ·{' '}
@@ -188,7 +210,7 @@ function Header({
         </p>
       </div>
       {entry.kind === 'hackathon' && entry.trackerId !== null && !missing && (status === 'offen' || status === 'beworben') && (
-        <div className="shrink-0 sm:pt-1">
+        <div className="shrink-0">
           {status === 'offen' ? (
             <button type="button" className="btn btn-primary" disabled={signupBusy} onClick={() => onSignup('beworben')}>
               I signed up

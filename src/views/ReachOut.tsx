@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { api, ApiError, domainOf } from '../lib/api'
-import type { ContactStatus, EntrySummary, Partner, PartnerType, SearchHit } from '../lib/types'
-import { Empty, ErrorLine, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
+import { CONTACT_STATUS as STATUS, type EntrySummary, type Partner, type PartnerType, type SearchHit } from '../lib/types'
+import { Empty, ErrorLine, Field, Input, Modal, Select, Skeleton, Textarea, useConfirm } from '../components/ui'
 
 type Tab = 'find' | 'people'
 
@@ -128,11 +128,6 @@ const TYPES: { key: PartnerType; title: string }[] = [
   { key: 'mentor', title: 'Mentor' },
   { key: 'partner', title: 'Partner' },
 ]
-const STATUS: { key: ContactStatus; title: string }[] = [
-  { key: 'open', title: 'Open' },
-  { key: 'contacted', title: 'Contacted' },
-  { key: 'replied', title: 'Replied' },
-]
 
 function People({ entries }: { entries: EntrySummary[] }) {
   const [list, setList] = useState<Partner[] | null>(null)
@@ -230,6 +225,7 @@ function PartnerForm({
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirm, dialog } = useConfirm()
   const set = (k: keyof Partner, v: string | null) => setF((x) => ({ ...x, [k]: v }))
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -243,7 +239,7 @@ function PartnerForm({
     }
   }
   const remove = async () => {
-    if (!partner || !confirm(`Remove ${partner.name}?`)) return
+    if (!partner || !(await confirm(`Remove ${partner.name}?`, 'Remove'))) return
     setBusy(true)
     try {
       onSaved(await api.partnerRemove(partner.id))
@@ -319,6 +315,7 @@ function PartnerForm({
         </Field>
         {error && <ErrorLine>{error}</ErrorLine>}
       </form>
+      {dialog}
     </Modal>
   )
 }

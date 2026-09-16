@@ -3,7 +3,7 @@ import type { Entry } from '../lib/types'
 import type { OpFn } from '../views/Board'
 import { api, ApiError } from '../lib/api'
 import { navigate } from '../lib/router'
-import { ErrorLine, Field, Input, Modal } from '../components/ui'
+import { ErrorLine, Field, Input, Modal, useConfirm } from '../components/ui'
 
 // Bearbeiten des Eintrags: Stammdaten nur bei Projekten und verwaisten
 // Hackathons (die anderen kommen aus dem Tracker), Logo für alle, Archiv.
@@ -31,6 +31,7 @@ export function EditEntry({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const { confirm, dialog } = useConfirm()
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }))
 
   const submit = async (e: FormEvent) => {
@@ -84,7 +85,7 @@ export function EditEntry({
   }
 
   const archive = async () => {
-    if (!confirm(`Archive ${entry.name}? It disappears from the home screen.`)) return
+    if (!(await confirm(`Archive ${entry.name}? It disappears from the home screen.`, 'Archive'))) return
     const r = await op('archive', { archived: true })
     if (r.ok) {
       onChanged()
@@ -155,9 +156,9 @@ export function EditEntry({
             Initials
           </button>
         </div>
-        <p className="text-[12px] text-[var(--text-faint)] mt-1">PNG, JPEG, WebP or SVG up to 1 MB.</p>
         {error && <ErrorLine>{error}</ErrorLine>}
       </form>
+      {dialog}
     </Modal>
   )
 }
