@@ -25,7 +25,7 @@ const MAX_BUBBLES = 24
 // Wir sitzen in Berlin: unter Sign up nur, was hier oder remote stattfindet.
 // Alles andere bleibt im Tracker in Emil, bis es jemand bewusst anpinnt.
 const NEAR = /berlin|potsdam|brandenburg|online|remote|hybrid|virtuell|virtual/i
-export const isNear = (e: EntrySummary) => !e.location || NEAR.test(e.location) || NEAR.test(e.dates.text)
+export const isNear = (e: EntrySummary) => !e.location || NEAR.test(e.location)
 
 export function filterForView(entries: EntrySummary[], view: View): EntrySummary[] {
   const today = todayIso()
