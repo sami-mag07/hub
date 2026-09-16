@@ -80,6 +80,15 @@ test('fetch guard: private and local targets are rejected before any request', a
   for (const u of ['http://127.0.0.1:8080/', 'http://localhost/x', 'http://169.254.169.254/latest', 'ftp://example.com/', 'http://user:pw@example.com/', 'http://[::1]/']) {
     await assert.rejects(() => assertPublic(u), (err) => err.status === 400, u)
   }
+  const lit = await assertPublic('https://93.184.216.34/')
+  assert.equal(lit.address, '93.184.216.34')
+  assert.equal(lit.family, 4)
+})
+
+test('fetch: a public name that resolves to a private address is rejected, and the socket goes to the checked address', async () => {
+  const { fetchSafe } = await import('../server/fetch.mjs')
+  // localtest.me zeigt per öffentlichem DNS auf 127.0.0.1: darf nie durch.
+  await assert.rejects(() => fetchSafe('http://localtest.me:1/'), (err) => err.status === 400 || err.status === 502)
 })
 
 test('parseHtml: text without scripts, icons sorted by size, title decoded', () => {

@@ -4,6 +4,8 @@
 
 import dns from 'node:dns/promises'
 import net from 'node:net'
+import http from 'node:http'
+import https from 'node:https'
 import { HttpError } from './http.mjs'
 
 const MAX_REDIRECTS = 3
@@ -49,7 +51,7 @@ export async function assertPublic(urlStr) {
   if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) throw new HttpError(400, 'bad_url', 'Local hosts are not allowed')
   if (net.isIP(host)) {
     if (isPrivateIp(host)) throw new HttpError(400, 'bad_url', 'Private addresses are not allowed')
-    return u
+    return { url: u, address: host, family: net.isIPv6(host) ? 6 : 4 }
   }
   let addrs
   try {
@@ -58,7 +60,58 @@ export async function assertPublic(urlStr) {
     throw new HttpError(400, 'bad_url', 'Host not found')
   }
   if (!addrs.length || addrs.some((a) => isPrivateIp(a.address))) throw new HttpError(400, 'bad_url', 'Private addresses are not allowed')
-  return u
+  // Genau diese Adresse wird nachher angesprochen (siehe requestPinned),
+  // damit ein zweiter DNS-Blick nicht plötzlich ins private Netz zeigt.
+  return { url: u, address: addrs[0].address, family: addrs[0].family }
+}
+
+// Eine Anfrage an die vorher geprüfte Adresse: der lookup-Hook liefert die
+// gepinnte IP, TLS bekommt den echten Hostnamen (SNI), der Host-Header auch.
+function requestPinned({ url: u, address, family }, { timeoutMs, maxBytes }) {
+  return new Promise((resolve, reject) => {
+    const mod = u.protocol === 'https:' ? https : http
+    const req = mod.request(
+      {
+        protocol: u.protocol,
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'https:' ? 443 : 80),
+        path: `${u.pathname}${u.search}`,
+        method: 'GET',
+        servername: net.isIP(u.hostname) ? undefined : u.hostname,
+        lookup: (_host, _opts, cb) => cb(null, address, family),
+        headers: {
+          'User-Agent': 'TheHub/1.0 (+hackathon portal)',
+          Accept: 'text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.5',
+          'Accept-Encoding': 'identity',
+        },
+        timeout: timeoutMs,
+      },
+      (res) => {
+        const declared = Number(res.headers['content-length'] || 0)
+        if (declared > maxBytes) {
+          res.destroy()
+          reject(new HttpError(413, 'fetch_failed', 'Resource too large'))
+          return
+        }
+        const chunks = []
+        let size = 0
+        res.on('data', (c) => {
+          size += c.length
+          if (size > maxBytes) {
+            res.destroy()
+            reject(new HttpError(413, 'fetch_failed', 'Resource too large'))
+            return
+          }
+          chunks.push(c)
+        })
+        res.on('end', () => resolve({ status: res.statusCode || 0, headers: res.headers, body: Buffer.concat(chunks) }))
+        res.on('error', reject)
+      },
+    )
+    req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { name: 'AbortError' })))
+    req.on('error', reject)
+    req.end()
+  })
 }
 
 // Holt eine Ressource mit Größen- und Zeitlimit. accept: Funktion über den
@@ -66,42 +119,22 @@ export async function assertPublic(urlStr) {
 export async function fetchSafe(urlStr, { maxBytes = 1024 * 1024, timeoutMs = 10_000, accept = () => true } = {}) {
   let url = String(urlStr)
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const u = await assertPublic(url)
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), timeoutMs)
+    const target = await assertPublic(url)
     let res
     try {
-      res = await fetch(u, {
-        redirect: 'manual',
-        signal: ctrl.signal,
-        headers: { 'User-Agent': 'TheHub/1.0 (+hackathon portal)', Accept: 'text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.5' },
-      })
-      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-        url = new URL(res.headers.get('location'), u).toString()
-        continue
-      }
-      if (!res.ok) throw new HttpError(502, 'fetch_failed', `Site answered ${res.status}`)
-      const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-      if (!accept(type)) throw new HttpError(415, 'fetch_failed', `Unexpected content type ${type || 'unknown'}`)
-      const declared = Number(res.headers.get('content-length') || 0)
-      if (declared > maxBytes) throw new HttpError(413, 'fetch_failed', 'Resource too large')
-      const chunks = []
-      let size = 0
-      for await (const chunk of res.body) {
-        size += chunk.length
-        if (size > maxBytes) {
-          ctrl.abort()
-          throw new HttpError(413, 'fetch_failed', 'Resource too large')
-        }
-        chunks.push(chunk)
-      }
-      return { url: u.toString(), type, body: Buffer.concat(chunks) }
+      res = await requestPinned(target, { timeoutMs, maxBytes })
     } catch (err) {
       if (err instanceof HttpError) throw err
       throw new HttpError(502, 'fetch_failed', err.name === 'AbortError' ? 'Site timed out' : 'Site not reachable')
-    } finally {
-      clearTimeout(t)
     }
+    if (res.status >= 300 && res.status < 400 && res.headers.location) {
+      url = new URL(res.headers.location, target.url).toString()
+      continue
+    }
+    if (res.status < 200 || res.status >= 300) throw new HttpError(502, 'fetch_failed', `Site answered ${res.status}`)
+    const type = String(res.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    if (!accept(type)) throw new HttpError(415, 'fetch_failed', `Unexpected content type ${type || 'unknown'}`)
+    return { url: target.url.toString(), type, body: res.body }
   }
   throw new HttpError(502, 'fetch_failed', 'Too many redirects')
 }
