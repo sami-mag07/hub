@@ -22,6 +22,11 @@ const SIGNED = new Set(['beworben', 'warteliste', 'angenommen'])
 // Sign up zählen die nächsten Fristen, der Rest bleibt im Tracker.
 const MAX_BUBBLES = 24
 
+// Wir sitzen in Berlin: unter Sign up nur, was hier oder remote stattfindet.
+// Alles andere bleibt im Tracker in Emil, bis es jemand bewusst anpinnt.
+const NEAR = /berlin|potsdam|brandenburg|online|remote|hybrid|virtuell|virtual/i
+export const isNear = (e: EntrySummary) => !e.location || NEAR.test(e.location) || NEAR.test(e.dates.text)
+
 export function filterForView(entries: EntrySummary[], view: View): EntrySummary[] {
   const today = todayIso()
   const list = entries.filter((e) => {
@@ -34,7 +39,7 @@ export function filterForView(entries: EntrySummary[], view: View): EntrySummary
       if (e.kind !== 'hackathon' || e.pinned || !e.tracker) return false
       if (e.tracker.status !== 'offen' || e.tracker.missingSince) return false
       if (e.deadline && e.deadline < today) return false
-      return true
+      return isNear(e)
     }
     return false
   })
