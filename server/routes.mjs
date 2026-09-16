@@ -110,13 +110,16 @@ export function createRouter({ auth, store, tracker }) {
   on('POST', /^\/api\/tracker\/sync$/, async (_req, res) => sendJson(res, 200, await tracker.sync()))
   on('POST', /^\/api\/tracker\/add$/, async (req, res) => {
     const body = await readJson(req)
-    const fields = {
-      name: text(body.name, 160, { required: true, name: 'name' }),
-      link: url(body.link, { name: 'link' }),
-      ort: text(body.ort, 160, { name: 'ort' }),
-      datum: text(body.datum, 120, { name: 'datum' }),
-      frist: isoDate(body.frist, { name: 'frist' }),
-    }
+    // Leere Felder nicht mitschicken: Emil prüft jedes gesetzte Feld.
+    const fields = Object.fromEntries(
+      Object.entries({
+        name: text(body.name, 160, { required: true, name: 'name' }),
+        link: url(body.link, { name: 'link' }),
+        ort: text(body.ort, 160, { name: 'ort' }),
+        datum: text(body.datum, 120, { name: 'datum' }),
+        frist: isoDate(body.frist, { name: 'frist' }),
+      }).filter(([, v]) => v !== null && v !== ''),
+    )
     sendJson(res, 200, await tracker.addHackathon(fields))
   })
   on('POST', /^\/api\/search\/hackathons$/, async (req, res) => {
