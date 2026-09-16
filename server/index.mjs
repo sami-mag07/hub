@@ -19,6 +19,10 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const DIST = path.resolve(here, '..', 'dist')
 const DATA = path.resolve(process.env.HUB_DATA_DIR || path.join(here, '..', 'data'))
 const PORT = Number(process.env.PORT) || 8340
+// Lokal nur loopback. Im Container muss es 0.0.0.0 sein, weil Dockers
+// Port-Mapping nicht an das Loopback des Containers herankommt; nach außen
+// bleibt der Port trotzdem auf 127.0.0.1 des Hosts gebunden (deploy.sh).
+const HOST = process.env.HOST || '127.0.0.1'
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -99,8 +103,8 @@ export async function createServer() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { server, tracker } = await createServer()
-  server.listen(PORT, '127.0.0.1', () => {
-    console.log(JSON.stringify({ event: 'listening', port: PORT, data: DATA }))
+  server.listen(PORT, HOST, () => {
+    console.log(JSON.stringify({ event: 'listening', host: HOST, port: PORT, data: DATA }))
     if (!process.env.HUB_PASSWORD) console.warn('HUB_PASSWORD is empty: nobody can log in.')
     if (!process.env.HUB_TOKEN || !process.env.EMIL_EXPORT_URL) console.warn('HUB_TOKEN or EMIL_EXPORT_URL missing: tracker sync is off.')
     if (!process.env.TAVILY_API_KEY) console.warn('TAVILY_API_KEY missing: news and search are off.')

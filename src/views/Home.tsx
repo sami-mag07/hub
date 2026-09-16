@@ -6,6 +6,7 @@ import { navigate } from '../lib/router'
 import { daysUntil, formatTime, todayIso } from '../lib/format'
 import { useEntries } from '../lib/useEntries'
 import { BubbleField } from '../bubbles/BubbleField'
+import { relevantDays } from '../bubbles/Bubble'
 import { Empty, Field, Input, Modal, Skeleton } from '../components/ui'
 import { ReachOut } from './ReachOut'
 
@@ -17,9 +18,13 @@ const VIEWS: { key: View; path: string; title: string }[] = [
 
 const SIGNED = new Set(['beworben', 'warteliste', 'angenommen'])
 
+// Mehr als zwei Dutzend Blasen werden zu klein und zu teuer (Blur). Unter
+// Sign up zählen die nächsten Fristen, der Rest bleibt im Tracker.
+const MAX_BUBBLES = 24
+
 export function filterForView(entries: EntrySummary[], view: View): EntrySummary[] {
   const today = todayIso()
-  return entries.filter((e) => {
+  const list = entries.filter((e) => {
     if (e.archived) return false
     if (view === 'signed-up') {
       if (e.kind === 'project' || e.pinned) return true
@@ -33,6 +38,8 @@ export function filterForView(entries: EntrySummary[], view: View): EntrySummary
     }
     return false
   })
+  if (list.length <= MAX_BUBBLES) return list
+  return [...list].sort((a, b) => (relevantDays(a).days ?? 9999) - (relevantDays(b).days ?? 9999)).slice(0, MAX_BUBBLES)
 }
 
 export function Home({ view, userName, onLogout }: { view: View; userName: string; onLogout: () => void }) {

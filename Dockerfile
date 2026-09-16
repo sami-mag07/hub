@@ -4,6 +4,7 @@ FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8340
+ENV HOST=0.0.0.0
 
 COPY dist ./dist
 COPY server ./server
