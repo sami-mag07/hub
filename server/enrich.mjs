@@ -143,10 +143,13 @@ export function applyEnrichment(draft, data, source) {
   return changed
 }
 
-export async function enrichEntry(store, id) {
+// url: optional eine andere Seite als der Eintrags-Link (z.B. die Agenda
+// statt des Anmeldeformulars).
+export async function enrichEntry(store, id, url) {
   const entry = store.get(id)
-  if (!entry.link) throw new HttpError(400, 'no_link', 'This entry has no website')
-  const page = await readSite(entry.link)
+  const target = url || entry.link
+  if (!target) throw new HttpError(400, 'no_link', 'This entry has no website')
+  const page = await readSite(target)
   if (page.text.length < MIN_TEXT) throw new HttpError(502, 'fetch_failed', 'The page has almost no readable text')
   const data = await extract(entry, page)
   let changed = []
