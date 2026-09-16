@@ -74,6 +74,8 @@ export class Tracker {
     this.state = { lastOk: null, lastError: null, lastTry: null }
     this.timer = null
     this.running = null
+    // Wird für jeden neu angelegten Eintrag gerufen (Hintergrund-Anreicherung).
+    this.onNew = () => {}
   }
 
   get configured() {
@@ -155,6 +157,7 @@ export class Tracker {
         applyRow(e, row, syncedAt)
         await this.store.create(e)
         changed++
+        this.onNew(e.id)
         continue
       }
       await this.store.mutate(existing.id, undefined, (draft) => applyRow(draft, row, syncedAt) || false).then(

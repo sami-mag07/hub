@@ -5,7 +5,7 @@ export type TaskStatus = 'todo' | 'doing' | 'done'
 export type Priority = 'high' | 'medium' | 'low'
 export type ContactStatus = 'open' | 'contacted' | 'replied'
 export type LinkType = 'registration' | 'github' | 'pitch' | 'miro' | 'other'
-export type LogoKind = 'upload' | 'favicon' | 'initials'
+export type LogoKind = 'upload' | 'auto' | 'favicon' | 'initials'
 export type TrackerStatus = 'offen' | 'beworben' | 'warteliste' | 'angenommen' | 'abgelehnt' | 'verworfen'
 export type PartnerType = 'sponsor' | 'mentor' | 'partner'
 
@@ -45,6 +45,14 @@ export interface Contact {
   channel: string
   status: ContactStatus
   note: string
+  updatedAt: string
+}
+
+export interface Track {
+  id: string
+  name: string
+  description: string
+  notes: string
   updatedAt: string
 }
 
@@ -106,10 +114,12 @@ export interface Entry {
   link: string
   links: Link[]
   info: Info
+  tracks: Track[]
   tasks: Task[]
   contacts: Contact[]
   comments: Comment[]
   news: { fetchedAt: string | null; query: string; items: NewsItem[] }
+  enriched: { at: string; source: string | null; changed: number; error?: string } | null
   tracker: TrackerInfo | null
   pinned: boolean
   archived: boolean

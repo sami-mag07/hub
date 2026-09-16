@@ -52,6 +52,8 @@ export const api = {
   createProject: (name: string, link: string) => post<Entry>('/api/entries', { kind: 'project', name, link }),
   op: (id: string, op: string, body: Record<string, unknown>) => post<Entry>(`/api/entries/${id}/${op}`, body),
   uploadLogo: (id: string, file: Blob) => request<Entry>('POST', `/api/entries/${id}/logo`, file),
+  fetchLogo: (id: string) => post<Entry>(`/api/entries/${id}/logo/fetch`),
+  enrich: (id: string) => post<{ entry: Entry; changed: string[] }>(`/api/entries/${id}/enrich`),
 
   tracker: () => get<TrackerState>('/api/tracker'),
   trackerSync: () => post<TrackerState>('/api/tracker/sync'),

@@ -7,6 +7,7 @@ import { daysUntil, formatTime, todayIso } from '../lib/format'
 import { useEntries } from '../lib/useEntries'
 import { BubbleField } from '../bubbles/BubbleField'
 import { relevantDays } from '../bubbles/Bubble'
+import { isNearLocation } from '../../shared/near.mjs'
 import { Empty, Field, Input, Modal, Skeleton } from '../components/ui'
 import { ReachOut } from './ReachOut'
 
@@ -22,10 +23,7 @@ const SIGNED = new Set(['beworben', 'warteliste', 'angenommen'])
 // Sign up zählen die nächsten Fristen, der Rest bleibt im Tracker.
 const MAX_BUBBLES = 24
 
-// Wir sitzen in Berlin: unter Sign up nur, was hier oder remote stattfindet.
-// Alles andere bleibt im Tracker in Emil, bis es jemand bewusst anpinnt.
-const NEAR = /berlin|potsdam|brandenburg|online|remote|hybrid|virtuell|virtual/i
-export const isNear = (e: EntrySummary) => !e.location || NEAR.test(e.location)
+export const isNear = (e: EntrySummary) => isNearLocation(e.location)
 
 export function filterForView(entries: EntrySummary[], view: View): EntrySummary[] {
   const today = todayIso()

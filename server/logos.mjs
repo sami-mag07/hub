@@ -4,6 +4,8 @@
 
 import fsp from 'node:fs/promises'
 import { HttpError, bad } from './http.mjs'
+import { fetchSafe } from './fetch.mjs'
+import { readSite } from './enrich.mjs'
 
 export const MAX_LOGO = 1024 * 1024
 
@@ -39,8 +41,49 @@ export async function saveLogo(store, id, buf) {
   return `${id}.${ext}`
 }
 
+// Sucht ein echtes Logo auf der Webseite des Eintrags: apple-touch-icon
+// (180px) vor großen Icons vor dem Standardpfad. Ein Upload von Hand bleibt
+// immer stehen. Gibt den Dateinamen zurück oder null.
+export async function huntLogo(store, id, page) {
+  const e = store.get(id)
+  if (e.logo.kind === 'upload' || !e.link) return null
+  const site = page || (await readSite(e.link).catch(() => null))
+  let origin
+  try {
+    origin = new URL(e.link).origin
+  } catch {
+    return null
+  }
+  const candidates = [
+    ...(site?.icons || []).filter((i) => i.size >= 64).map((i) => i.url),
+    `${origin}/apple-touch-icon.png`,
+    `${origin}/apple-touch-icon-precomposed.png`,
+  ]
+  const seen = new Set()
+  for (const url of candidates) {
+    if (seen.has(url)) continue
+    seen.add(url)
+    try {
+      const img = await fetchSafe(url, { maxBytes: MAX_LOGO, timeoutMs: 8000, accept: (t) => t.startsWith('image/') || t === 'application/octet-stream' })
+      const ext = sniff(img.body)
+      if (!ext || (ext === 'svg' && !svgSafe(img.body))) continue
+      if (img.body.length < 400) continue
+      const file = await saveLogo(store, id, img.body)
+      await store.mutate(id, undefined, (draft) => {
+        if (draft.logo.kind === 'upload') return false
+        draft.logo = { kind: 'auto', file }
+      })
+      console.log(JSON.stringify({ event: 'logo_found', id, url }))
+      return file
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
 export async function serveLogo(store, res, e) {
-  if (e.logo.kind !== 'upload' || !e.logo.file) throw new HttpError(404, 'not_found', 'No logo')
+  if ((e.logo.kind !== 'upload' && e.logo.kind !== 'auto') || !e.logo.file) throw new HttpError(404, 'not_found', 'No logo')
   const ext = e.logo.file.split('.').pop()
   const type = TYPES[ext]
   if (!type) throw new HttpError(404, 'not_found', 'No logo')

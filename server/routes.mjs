@@ -4,10 +4,85 @@
 import { HttpError, Window, bad, clientIp, isoDate, oneOf, readJson, readRaw, sameOrigin, sendError, sendJson, text, url } from './http.mjs'
 import { LIMITS, emptyEntry, newId, now } from './store.mjs'
 import { OPS, applyOp } from './ops.mjs'
-import { MAX_LOGO, saveLogo, serveLogo } from './logos.mjs'
+import { MAX_LOGO, huntLogo, saveLogo, serveLogo } from './logos.mjs'
 import { checkNewsLimit, checkSearchLimit, newsFor, tavily } from './news.mjs'
+import { checkEnrichLimit, enrichEntry, llmConfigured } from './enrich.mjs'
+import { timingSafeEqual } from 'node:crypto'
 
 const general = new Window(120, 60 * 1000)
+const SIGNED = new Set(['beworben', 'warteliste', 'angenommen'])
+
+// Terminals und Agenten weisen sich mit einem Token aus: HUB_AGENT_TOKENS in
+// der .env als "name:token,name:token". Der Name landet als Autor an allem,
+// was der Agent schreibt.
+function agentFromToken(given) {
+  const raw = (process.env.HUB_AGENT_TOKENS || '').trim()
+  if (!raw || !given) return null
+  const g = Buffer.from(given)
+  for (const pair of raw.split(',')) {
+    const i = pair.indexOf(':')
+    if (i < 0) continue
+    const name = pair.slice(0, i).trim()
+    const tok = Buffer.from(pair.slice(i + 1).trim())
+    if (tok.length && tok.length === g.length && timingSafeEqual(tok, g)) return name
+  }
+  return null
+}
+
+// Was auf der Startseite unter Signed up steht: Projekte, Angepinntes und
+// Hackathons mit Bewerbung. Dieselbe Regel wie im Client.
+export function isActive(e) {
+  if (e.archived) return false
+  if (e.kind === 'project' || e.pinned) return true
+  return !!e.tracker && SIGNED.has(e.tracker.status)
+}
+
+function daysUntil(iso) {
+  if (!iso) return null
+  const t = Date.parse(`${iso}T00:00:00Z`)
+  if (Number.isNaN(t)) return null
+  const today = new Date()
+  const base = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  return Math.round((t - base) / 86_400_000)
+}
+
+export function agentStatus(store) {
+  const entries = [...store.entries.values()].filter(isActive).map((e) => {
+    const open = e.tasks.filter((t) => t.status !== 'done').sort((a, b) => a.order - b.order)
+    const missing = []
+    if (!e.info.description && e.kind === 'hackathon') missing.push('description')
+    if (!e.tracks.length && e.kind === 'hackathon') missing.push('tracks')
+    if (!e.links.length && !e.link) missing.push('links')
+    if (!open.length) missing.push('tasks')
+    return {
+      id: e.id,
+      kind: e.kind,
+      name: e.name,
+      dates: e.dates.text,
+      start: e.dates.start,
+      location: e.location,
+      deadline: e.deadline,
+      daysToDeadline: daysUntil(e.deadline),
+      daysToStart: daysUntil(e.dates.start),
+      status: e.tracker?.status ?? null,
+      pinned: e.pinned,
+      website: e.link,
+      links: e.links.map((l) => ({ label: l.label, url: l.url, type: l.type })),
+      description: e.info.description,
+      tracks: e.tracks.map((t) => ({ id: t.id, name: t.name, description: t.description, notes: t.notes })),
+      prizes: e.info.prizes,
+      windows: e.info.windows,
+      openTasks: open.map((t) => ({ id: t.id, title: t.title, status: t.status, assignee: t.assignee, due: t.due, priority: t.priority, label: t.label })),
+      doneTasks: e.tasks.filter((t) => t.status === 'done').length,
+      contacts: e.contacts.map((c) => ({ name: c.name, role: c.role, status: c.status })),
+      lastComments: [...e.comments].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5).map((c) => ({ author: c.author, at: c.at, text: c.text })),
+      news: e.news.items.slice(0, 5).map((n) => ({ title: n.title, url: n.url, date: n.date })),
+      missing,
+    }
+  })
+  entries.sort((a, b) => (a.daysToStart ?? 9999) - (b.daysToStart ?? 9999))
+  return { generatedAt: now(), entries }
+}
 
 function partnerFields(body, current = {}) {
   return {
@@ -79,6 +154,22 @@ export function createRouter({ auth, store, tracker }) {
     sendJson(res, 200, e)
   })
   on('GET', /^\/api\/logos\/([A-Za-z0-9_-]{6,32})$/, async (_req, res, _user, [id]) => serveLogo(store, res, store.get(id)))
+  on('POST', /^\/api\/entries\/([A-Za-z0-9_-]{6,32})\/logo\/fetch$/, async (req, res, _user, [id]) => {
+    await readJson(req)
+    store.get(id)
+    const file = await huntLogo(store, id)
+    if (!file) throw new HttpError(404, 'not_found', 'No usable logo on that website')
+    sendJson(res, 200, store.get(id))
+  })
+  on('POST', /^\/api\/entries\/([A-Za-z0-9_-]{6,32})\/enrich$/, async (req, res, _user, [id]) => {
+    await readJson(req)
+    store.get(id)
+    if (!llmConfigured()) throw new HttpError(503, 'llm_unconfigured', 'Reading is not configured on the server')
+    checkEnrichLimit(id)
+    const { changed, page } = await enrichEntry(store, id)
+    await huntLogo(store, id, page).catch(() => null)
+    sendJson(res, 200, { entry: store.get(id), changed })
+  })
   on('POST', /^\/api\/entries\/([A-Za-z0-9_-]{6,32})\/signup$/, async (req, res, _user, [id]) => {
     const body = await readJson(req)
     const status = body.status === 'offen' ? 'offen' : 'beworben'
@@ -104,6 +195,10 @@ export function createRouter({ auth, store, tracker }) {
     if (version !== undefined && !Number.isInteger(version)) throw bad('version must be an integer')
     sendJson(res, 200, await store.mutate(id, version, (draft) => applyOp(draft, op, body, user)))
   })
+
+  // Agenten: kompakter Stand aller aktiven Einträge
+  on('GET', /^\/api\/agent\/status$/, async (_req, res) => sendJson(res, 200, agentStatus(store)))
+  on('GET', /^\/api\/agent\/whoami$/, async (_req, res, user) => sendJson(res, 200, { user }))
 
   // Tracker
   on('GET', /^\/api\/tracker$/, async (_req, res) => sendJson(res, 200, tracker.state))
@@ -161,11 +256,19 @@ export function createRouter({ auth, store, tracker }) {
         if (r.method !== method) continue
         const m = path.match(r.pattern)
         if (!m) continue
-        if (method !== 'GET' && !sameOrigin(req)) throw new HttpError(403, 'forbidden', 'Cross-site request blocked')
+        const bearer = String(req.headers.authorization || '')
         let user = ''
-        if (!r.open) {
-          const { session } = auth.require(req)
-          user = session.name || 'someone'
+        if (bearer.startsWith('Bearer ')) {
+          // Token-Zugriff ohne Cookie: kein CSRF möglich, deshalb kein Origin-Check.
+          const agent = agentFromToken(bearer.slice(7).trim())
+          if (!agent) throw new HttpError(401, 'unauthorized', 'Unknown agent token')
+          user = `${agent} (agent)`
+        } else {
+          if (method !== 'GET' && !sameOrigin(req)) throw new HttpError(403, 'forbidden', 'Cross-site request blocked')
+          if (!r.open) {
+            const { session } = auth.require(req)
+            user = session.name || 'someone'
+          }
         }
         await r.handler(req, res, user, m.slice(1))
         return true

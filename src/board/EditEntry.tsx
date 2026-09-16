@@ -78,6 +78,19 @@ export function EditEntry({
     }
   }
 
+  const fetchLogo = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      apply(await api.fetchLogo(entry.id))
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 404 ? 'No usable logo on that website.' : 'Could not fetch a logo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const logoMode = async (kind: 'favicon' | 'initials') => {
     const r = await op('logo/mode', { kind })
     if (!r.ok) setError(r.message)
@@ -149,8 +162,13 @@ export function EditEntry({
           <label htmlFor="logo-file" className="btn cursor-pointer">
             Upload
           </label>
+          {entry.link && (
+            <button type="button" className="btn" aria-pressed={entry.logo.kind === 'auto'} onClick={fetchLogo} disabled={busy}>
+              From website
+            </button>
+          )}
           <button type="button" className="btn" aria-pressed={entry.logo.kind === 'favicon'} onClick={() => logoMode('favicon')}>
-            From website
+            Favicon
           </button>
           <button type="button" className="btn" aria-pressed={entry.logo.kind === 'initials'} onClick={() => logoMode('initials')}>
             Initials

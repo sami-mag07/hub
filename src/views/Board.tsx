@@ -8,6 +8,7 @@ import { Logo, relevantDays } from '../bubbles/Bubble'
 import { formatDate, formatDays } from '../lib/format'
 import { Empty, Skeleton } from '../components/ui'
 import { About, Links } from '../board/Overview'
+import { Tracks } from '../board/Tracks'
 import { Kanban } from '../board/Kanban'
 import { Contacts } from '../board/Contacts'
 import { Comments } from '../board/Comments'
@@ -18,6 +19,7 @@ import { EditEntry } from '../board/EditEntry'
 // Hintergrund wie die Startseite. Die Pille unten springt zu den Abschnitten.
 const SECTIONS = [
   { id: 'about', title: 'About' },
+  { id: 'tracks', title: 'Tracks' },
   { id: 'board', title: 'Board' },
   { id: 'outreach', title: 'Outreach' },
   { id: 'comments', title: 'Comments' },
@@ -128,12 +130,18 @@ export function Board({ id, userName, onUnauthorized }: { id: string; userName: 
 
             <div className="grid gap-4 mt-8 md:grid-cols-[minmax(0,1fr)_320px]">
               <section id="about" className="glass-card glass p-5 sm:p-6 scroll-mt-4">
-                <About entry={entry} op={op} />
+                <About entry={entry} op={op} apply={apply} />
               </section>
               <section className="glass-card glass p-5 sm:p-6 self-start">
                 <Links entry={entry} op={op} />
               </section>
             </div>
+
+            {(entry.kind === 'hackathon' || entry.tracks.length > 0) && (
+              <section id="tracks" className="glass-card glass p-5 sm:p-6 mt-4 scroll-mt-4">
+                <Tracks entry={entry} op={op} />
+              </section>
+            )}
 
             <section id="board" className="glass-card glass p-5 sm:p-6 mt-4 scroll-mt-4">
               <Kanban entry={entry} op={op} userName={userName} />
@@ -157,7 +165,7 @@ export function Board({ id, userName, onUnauthorized }: { id: string; userName: 
 
       {entry && (
         <nav className="pill glass" aria-label="Sections">
-          {SECTIONS.map((s) => (
+          {SECTIONS.filter((s) => s.id !== 'tracks' || entry.kind === 'hackathon' || entry.tracks.length > 0).map((s) => (
             <button key={s.id} type="button" aria-pressed={active === s.id} onClick={() => jump(s.id)}>
               {s.title}
             </button>

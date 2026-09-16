@@ -32,10 +32,12 @@ export function emptyEntry({ id, kind, name, createdBy, link = '', trackerId = n
     link,
     links: [],
     info: { description: '', tracks: '', prizes: '', windows: '', cost: '' },
+    tracks: [],
     tasks: [],
     contacts: [],
     comments: [],
     news: { fetchedAt: null, query: '', items: [] },
+    enriched: null,
     tracker: null,
     pinned: false,
     archived: false,
@@ -80,7 +82,12 @@ export class Store {
       if (!name.endsWith('.json')) continue
       try {
         const e = JSON.parse(await fsp.readFile(path.join(this.entriesDir, name), 'utf8'))
-        if (e && typeof e.id === 'string') this.entries.set(e.id, e)
+        if (e && typeof e.id === 'string') {
+          // Additive Felder für ältere Dateien
+          e.tracks ??= []
+          e.enriched ??= null
+          this.entries.set(e.id, e)
+        }
       } catch (err) {
         console.error(JSON.stringify({ event: 'entry_unreadable', file: name, message: err.message }))
       }

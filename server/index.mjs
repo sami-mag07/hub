@@ -12,6 +12,7 @@ import { Auth } from './auth.mjs'
 import { Store } from './store.mjs'
 import { Tracker } from './tracker.mjs'
 import { createRouter } from './routes.mjs'
+import { Background } from './background.mjs'
 
 loadDotEnv()
 
@@ -70,6 +71,8 @@ export async function createServer() {
   await store.load()
   await auth.load()
   const api = createRouter({ auth, store, tracker })
+  const background = new Background(store)
+  tracker.onNew = (id) => background.enqueue(id)
 
   const server = http.createServer(async (req, res) => {
     securityHeaders(res)
@@ -98,16 +101,17 @@ export async function createServer() {
     res.end('No build found. Run npm run build first.')
   })
 
-  return { server, store, auth, tracker }
+  return { server, store, auth, tracker, background }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { server, tracker } = await createServer()
+  const { server, tracker, background } = await createServer()
   server.listen(PORT, HOST, () => {
     console.log(JSON.stringify({ event: 'listening', host: HOST, port: PORT, data: DATA }))
     if (!process.env.HUB_PASSWORD) console.warn('HUB_PASSWORD is empty: nobody can log in.')
     if (!process.env.HUB_TOKEN || !process.env.EMIL_EXPORT_URL) console.warn('HUB_TOKEN or EMIL_EXPORT_URL missing: tracker sync is off.')
     if (!process.env.TAVILY_API_KEY) console.warn('TAVILY_API_KEY missing: news and search are off.')
-    void tracker.start()
+    if (!process.env.CLAUDE_API_URL || !process.env.CLAUDE_API_TOKEN) console.warn('CLAUDE_API_URL or CLAUDE_API_TOKEN missing: reading websites is off.')
+    void tracker.start().then(() => tracker.sync()).then(() => background.backfill())
   })
 }

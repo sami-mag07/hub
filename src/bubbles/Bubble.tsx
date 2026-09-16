@@ -6,7 +6,7 @@ import { daysUntil, formatDays, initials } from '../lib/format'
 // Reihenfolge der Logo-Quellen: Upload, sonst Favicon der Link-Domain (Google,
 // dann DuckDuckGo), sonst Initialen. Der Server holt nie fremde Bilder.
 export function logoSources(e: Pick<EntrySummary, 'id' | 'logo' | 'link' | 'version'>): string[] {
-  if (e.logo.kind === 'upload' && e.logo.file) return [`/api/logos/${e.id}?v=${e.version}`]
+  if ((e.logo.kind === 'upload' || e.logo.kind === 'auto') && e.logo.file) return [`/api/logos/${e.id}?v=${e.version}`]
   if (e.logo.kind === 'initials') return []
   const host = domainOf(e.link)
   if (!host) return []

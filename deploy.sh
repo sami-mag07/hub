@@ -35,16 +35,19 @@ rsync -lpt Dockerfile .dockerignore "$VPS:$ZIEL/"
 
 echo "==> 4/5  Image bauen und Container tauschen"
 # data/ gehört dem Container-Nutzer node (UID 1000) und hängt als Bind-Mount.
+# Host-Netz: der Hub spricht mit Emil (8300) und der Claude-API (8080), die
+# beide nur auf 127.0.0.1 des Hosts lauschen. Dafür bindet er selbst wieder
+# auf 127.0.0.1, nach außen kommt nur Caddy.
 ssh "$VPS" "cd $ZIEL \
   && chown -R 1000:1000 $ZIEL/data \
   && docker build -q -t hub:latest . \
   && (docker rm -f hub >/dev/null 2>&1 || true) \
   && docker run -d --name hub --restart unless-stopped \
+    --network host \
     --env-file $ZIEL/.env \
-    -e VERTRAUE_PROXY=1 -e PORT=$PORT -e HUB_DATA_DIR=/app/data \
+    -e VERTRAUE_PROXY=1 -e PORT=$PORT -e HOST=127.0.0.1 -e HUB_DATA_DIR=/app/data \
     --memory=192m \
     -v $ZIEL/data:/app/data \
-    -p 127.0.0.1:$PORT:$PORT \
     hub:latest >/dev/null"
 
 echo "==> 5/5  Gegenprobe"

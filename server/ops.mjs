@@ -168,6 +168,33 @@ export function applyOp(e, op, body, user) {
       }
       return
 
+    case 'tracks/add': {
+      if (e.tracks.length >= 40) throw bad('At most 40 tracks')
+      e.tracks.push({
+        id: newId(),
+        name: text(body.name, 120, { required: true, name: 'name' }),
+        description: text(body.description, 1000, { name: 'description' }),
+        notes: text(body.notes, 4000, { name: 'notes' }),
+        updatedAt: t,
+      })
+      return
+    }
+    case 'tracks/update': {
+      const i = find(e.tracks, body.trackId, 'Track')
+      const cur = e.tracks[i]
+      e.tracks[i] = {
+        ...cur,
+        name: body.name !== undefined ? text(body.name, 120, { required: true, name: 'name' }) : cur.name,
+        description: body.description !== undefined ? text(body.description, 1000, { name: 'description' }) : cur.description,
+        notes: body.notes !== undefined ? text(body.notes, 4000, { name: 'notes' }) : cur.notes,
+        updatedAt: t,
+      }
+      return
+    }
+    case 'tracks/remove':
+      e.tracks.splice(find(e.tracks, body.trackId, 'Track'), 1)
+      return
+
     case 'contacts/add': {
       if (e.contacts.length >= LIMITS.contacts) throw bad(`At most ${LIMITS.contacts} contacts`)
       e.contacts.push({ id: newId(), ...contactFields(body), updatedAt: t })
@@ -215,6 +242,9 @@ export const OPS = [
   'tasks/update',
   'tasks/move',
   'tasks/remove',
+  'tracks/add',
+  'tracks/update',
+  'tracks/remove',
   'contacts/add',
   'contacts/update',
   'contacts/remove',

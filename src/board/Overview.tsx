@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { ExternalLink, Pencil, Plus } from 'lucide-react'
+import { ExternalLink, Globe, Pencil, Plus } from 'lucide-react'
 import type { Entry, Link, LinkType } from '../lib/types'
 import type { OpFn } from '../views/Board'
 import { ErrorLine, Field, Input, Modal, SectionTitle, Select, Textarea, useConfirm } from '../components/ui'
-import { domainOf } from '../lib/api'
+import { api, ApiError, domainOf } from '../lib/api'
+import { formatTime } from '../lib/format'
 
 const LINK_TYPES: { key: LinkType; title: string }[] = [
   { key: 'registration', title: 'Registration' },
@@ -23,13 +24,54 @@ const INFO: { key: keyof Entry['info']; title: string }[] = [
 
 // Gefüllte Abschnitte stehen als Text mit Stift, leere als eine Zeile
 // gestrichelter Knöpfe. Fünfmal "Add" untereinander wäre Slop.
-export function About({ entry, op }: { entry: Entry; op: OpFn }) {
+export function About({ entry, op, apply }: { entry: Entry; op: OpFn; apply: (e: Entry) => void }) {
   const [editInfo, setEditInfo] = useState<keyof Entry['info'] | null>(null)
+  const [reading, setReading] = useState(false)
+  const [readError, setReadError] = useState<string | null>(null)
+  const [readResult, setReadResult] = useState<string | null>(null)
   const filled = INFO.filter(({ key }) => entry.info[key])
   const empty = INFO.filter(({ key }) => !entry.info[key])
+
+  // Die Blase liest ihre Webseite: füllt nur, was leer ist.
+  const read = async () => {
+    setReading(true)
+    setReadError(null)
+    setReadResult(null)
+    try {
+      const r = await api.enrich(entry.id)
+      apply(r.entry)
+      setReadResult(r.changed.length ? `Filled ${r.changed.length} things.` : 'Nothing new on the website.')
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 429) setReadError(e.message)
+      else if (e instanceof ApiError && e.status === 503) setReadError('Reading is not configured on the server.')
+      else setReadError(e instanceof ApiError ? e.message : 'Could not read the website.')
+    } finally {
+      setReading(false)
+    }
+  }
+
   return (
     <div>
-      <SectionTitle>About</SectionTitle>
+      <SectionTitle
+        action={
+          entry.link ? (
+            <>
+              {entry.enriched?.at && !reading && (
+                <span className="text-[13px] text-[var(--text-muted)] tnum hidden sm:inline">
+                  {readResult ?? `Read ${formatTime(entry.enriched.at)}`}
+                </span>
+              )}
+              <button type="button" className="btn" onClick={read} disabled={reading}>
+                <Globe size={15} className={reading ? 'animate-pulse' : ''} />
+                {reading ? 'Reading' : 'Read website'}
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        About
+      </SectionTitle>
+      {readError && <ErrorLine>{readError}</ErrorLine>}
       <div className="grid gap-5">
         {filled.map(({ key, title }) => (
           <div key={key}>
