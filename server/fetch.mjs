@@ -62,7 +62,9 @@ export async function assertPublic(urlStr) {
   if (!addrs.length || addrs.some((a) => isPrivateIp(a.address))) throw new HttpError(400, 'bad_url', 'Private addresses are not allowed')
   // Genau diese Adresse wird nachher angesprochen (siehe requestPinned),
   // damit ein zweiter DNS-Blick nicht plötzlich ins private Netz zeigt.
-  return { url: u, address: addrs[0].address, family: addrs[0].family }
+  // IPv4 zuerst: der VPS hat keine verlässliche IPv6-Route.
+  const pick = addrs.find((a) => a.family === 4) || addrs[0]
+  return { url: u, address: pick.address, family: pick.family }
 }
 
 // Eine Anfrage an die vorher geprüfte Adresse: der lookup-Hook liefert die
@@ -78,7 +80,9 @@ function requestPinned({ url: u, address, family }, { timeoutMs, maxBytes }) {
         path: `${u.pathname}${u.search}`,
         method: 'GET',
         servername: net.isIP(u.hostname) ? undefined : u.hostname,
-        lookup: (_host, _opts, cb) => cb(null, address, family),
+        // Node ruft lookup je nach Verbindungsart mit {all: true} (Liste)
+        // oder ohne (einzelne Adresse) auf; beide Formen bedienen.
+        lookup: (_host, opts, cb) => (opts?.all ? cb(null, [{ address, family }]) : cb(null, address, family)),
         headers: {
           'User-Agent': 'TheHub/1.0 (+hackathon portal)',
           Accept: 'text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.5',
@@ -125,7 +129,7 @@ export async function fetchSafe(urlStr, { maxBytes = 1024 * 1024, timeoutMs = 10
       res = await requestPinned(target, { timeoutMs, maxBytes })
     } catch (err) {
       if (err instanceof HttpError) throw err
-      throw new HttpError(502, 'fetch_failed', err.name === 'AbortError' ? 'Site timed out' : 'Site not reachable')
+      throw new HttpError(502, 'fetch_failed', err.name === 'AbortError' ? 'Site timed out' : `Site not reachable${err.code ? ` (${err.code})` : ''}`)
     }
     if (res.status >= 300 && res.status < 400 && res.headers.location) {
       url = new URL(res.headers.location, target.url).toString()
